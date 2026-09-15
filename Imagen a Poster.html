@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111110">
+    <title>Póster PDF — Recorta una imagen en hojas para pegar</title>
+    <style>
+        :root {
+            --ink: #141311;
+            --muted: #6f6a62;
+            --faint: #9a948a;
+            --paper: #ece9e2;
+            --surface: #fffcf8;
+            --panel: #f7f4ee;
+            --raised: #ffffff;
+            --line: #e4dfd5;
+            --line-strong: #d3cdc2;
+            --accent: #c2410c;
+            --accent-soft: #fde8dc;
+            --glue: #0f766e;
+            --glue-soft: rgba(15, 118, 110, 0.16);
+            --ok: #0f766e;
+            --shadow: 0 20px 44px rgba(20, 19, 17, 0.08);
+            --radius: 20px;
+            --focus: 0 0 0 3px rgba(194, 65, 12, 0.24);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; }
+        body {
+            margin: 0;
+            color: var(--ink);
+            background:
+                radial-gradient(900px 420px at 0% -8%, #fff7ec 0%, transparent 58%),
+                radial-gradient(700px 380px at 100% 0%, #e7efe9 0%, transparent 50%),
+                var(--paper);
+            font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+            line-height: 1.4;
+        }
+        button, input, select { font-family: inherit; color: inherit; }
+
+        .page {
+            width: min(1240px, calc(100% - 28px));
+            margin: 0 auto;
+            padding: 22px 0 calc(22px + var(--safe-bottom));
+        }
+
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+        .mark {
+            width: 42px; height: 42px; border-radius: 12px;
+            background: var(--ink); color: #f6f1e8;
+            display: grid; place-items: center; flex-shrink: 0;
+        }
+        .mark svg { width: 20px; height: 20px; }
+        .brand h1 {
+            margin: 0;
+            font-size: clamp(1.25rem, 2vw, 1.55rem);
+            letter-spacing: -0.04em;
+        }
+        .brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.88rem; }
+
+        .stats { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--raised);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .chip b { font-weight: 750; }
+        .chip.ready { background: #ecf8f5; border-color: #cde7e1; color: #0f5f58; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .panel-preview { padding: 16px; min-width: 0; }
+        .panel-control {
+            padding: 8px 8px 16px;
+            position: sticky;
+            top: 14px;
+            background: var(--surface);
+        }
+
+        .preview-head, .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .preview-head {
+            margin-bottom: 12px;
+            padding: 4px 6px 12px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .kicker {
+            margin: 0;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .preview-head h2 {
+            margin: 2px 0 0;
+            font-size: 1.05rem;
+            letter-spacing: -0.03em;
+        }
+
+        .ghost-btn {
+            border: 1px solid var(--line-strong);
+            background: var(--raised);
+            border-radius: 999px;
+            min-height: 36px;
+            padding: 0 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .ghost-btn:hover { border-color: var(--ink); }
+        .ghost-btn:focus-visible, .seg-btn:focus-visible, .preset:focus-visible,
+        .paper-btn:focus-visible, .stepper-btn:focus-visible, .btn-primary:focus-visible,
+        .file-cta:focus-visible {
+            outline: none;
+            box-shadow: var(--focus);
+        }
+
+        .drop-zone {
+            position: relative;
+            min-height: min(62vh, 620px);
+            padding: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:
+                linear-gradient(180deg, #f4f0e8 0%, #ebe5da 100%);
+            border: 1.5px dashed var(--line-strong);
+            border-radius: 16px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: border-color .2s ease, background .2s ease, transform .2s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--ink);
+            background: #f0e9dc;
+        }
+        .drop-zone.dragover { transform: scale(1.008); }
+        .drop-zone.has-image { cursor: default; background: #efeae1; min-height: 0; }
+
+        #canvasPreview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 18px 36px rgba(20, 19, 17, 0.14);
+            background: #fff;
+        }
+
+        .empty-state {
+            display: grid;
+            justify-items: center;
+            text-align: center;
+            gap: 14px;
+            pointer-events: none;
+            padding: 12px;
+        }
+        .empty-state.hidden { display: none; }
+
+        .poster-ghost {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 92px;
+            height: 118px;
+            padding: 8px;
+            border-radius: 12px;
+            background: var(--raised);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+        }
+        .poster-ghost span {
+            display: block;
+            border-radius: 4px;
+            background: linear-gradient(180deg, #f3eee6, #e6dfd3);
+            border: 1px solid #ddd4c6;
+        }
+
+        .empty-state strong { font-size: 1.12rem; letter-spacing: -0.03em; }
+        .empty-state span { color: var(--muted); font-size: 0.9rem; max-width: 34ch; }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 650;
+        }
+        .legend i {
+            display: inline-block;
+            width: 11px; height: 11px;
+            margin-right: 6px;
+            border-radius: 3px;
+            vertical-align: -1px;
+        }
+        .swatch-glue { background: var(--glue-soft); box-shadow: inset 0 0 0 1px var(--glue); }
+        .swatch-cut { background: transparent; box-shadow: inset 0 0 0 1px #8b8478; }
+
+        .section {
+            padding: 14px 12px 4px;
+            border-bottom: 1px solid var(--line);
+        }
+        .section:last-of-type { border-bottom: 0; }
+        .section h3 {
+            margin: 0 0 10px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .image-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--raised);
+        }
+        .image-card.empty { justify-content: center; }
+        .file-cta {
+            width: 100%;
+            min-height: 42px;
+            border: 0;
+            background: transparent;
+            font-weight: 750;
+            cursor: pointer;
+        }
+        .thumb {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: var(--panel);
+            flex-shrink: 0;
+            border: 1px solid var(--line);
+        }
+        .image-copy { min-width: 0; flex: 1; }
+        .image-copy strong {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.86rem;
+        }
+        .image-copy small { color: var(--muted); font-size: 0.74rem; }
+        .hidden { display: none !important; }
+
+        input[type="file"] {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        .presets {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .preset {
+            display: grid;
+            justify-items: center;
+            gap: 6px;
+            min-height: 62px;
+            padding: 8px 4px 7px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--raised);
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 750;
+            color: var(--muted);
+        }
+        .preset:hover { border-color: var(--ink); color: var(--ink); }
+        .preset.active {
+            border-color: var(--ink);
+            background: var(--ink);
+            color: #f6f1e8;
+        }
+        .mini-grid {
+            display: grid;
+            gap: 2px;
+            width: 26px;
+        }
+        .mini-grid b {
+            display: block;
+            height: 7px;
+            border-radius: 1px;
+            background: currentColor;
+            opacity: 0.85;
+        }
+        .g22 { grid-template-columns: 1fr 1fr; }
+        .g32 { grid-template-columns: 1fr 1fr 1fr; }
+        .g33 { grid-template-columns: 1fr 1fr 1fr; }
+        .g43 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+        .stepper-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .field span {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--muted);
+        }
+        .stepper {
+            display: grid;
+            grid-template-columns: 36px 1fr 36px;
+            align-items: center;
+            border: 1px solid var(--line-strong);
+            border-radius: 12px;
+            background: var(--raised);
+            overflow: hidden;
+        }
+        .stepper input {
+            width: 100%;
+            min-height: 40px;
+            border: 0;
+            background: transparent;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 700;
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+        .stepper input::-webkit-outer-spin-button,
+        .stepper input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+        .stepper-btn {
+            height: 40px;
+            border: 0;
+            background: var(--panel);
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--ink);
+        }
+        .stepper-btn:hover { background: #efe8dc; }
+
+        .paper-row, .seg {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .seg { grid-template-columns: 1fr 1fr; padding: 0; }
+        .paper-btn, .seg-btn {
+            min-height: 42px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--raised);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 750;
+            color: var(--muted);
+        }
+        .paper-btn small, .seg-btn small {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 650;
+            color: var(--faint);
+        }
+        .paper-btn.active, .seg-btn[aria-pressed="true"] {
+            background: var(--ink);
+            border-color: var(--ink);
+            color: #f6f1e8;
+        }
+        .paper-btn.active small, .seg-btn[aria-pressed="true"] small { color: #d9d0c3; }
+        .hint {
+            margin: 8px 0 10px;
+            color: var(--faint);
+            font-size: 0.75rem;
+        }
+
+        .summary {
+            margin: 12px 12px 0;
+            padding: 12px;
+            border-radius: 14px;
+            background: var(--panel);
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .summary strong { color: var(--ink); }
+        .acciones { padding: 12px 12px 0; }
+        .btn-primary {
+            width: 100%;
+            min-height: 50px;
+            border: 0;
+            border-radius: 14px;
+            background: var(--ink);
+            color: #f8f4ec;
+            font-size: 0.98rem;
+            font-weight: 750;
+            cursor: pointer;
+            transition: transform .15s ease, background .15s ease, opacity .15s ease;
+        }
+        .btn-primary:hover:not(:disabled) { background: #2b2824; }
+        .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+        .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+        .alert {
+            display: none;
+            margin: 10px 12px 0;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .alert.visible { display: block; }
+
+        #contenedor-paginas { display: none; }
+        .hoja { background: white; position: relative; box-sizing: border-box; overflow: hidden; }
+        .hoja canvas { display: block; width: 100%; height: 100%; }
+
+        @media (max-width: 960px) {
+            .page { width: min(100% - 16px, 1240px); padding-top: 14px; }
+            .layout { grid-template-columns: 1fr; }
+            .panel-control { position: static; order: 2; }
+            .panel-preview { order: 1; }
+            .drop-zone { min-height: 280px; }
+            .site-header { align-items: flex-start; flex-direction: column; }
+            .stats { justify-content: flex-start; }
+            .acciones {
+                position: sticky;
+                bottom: calc(10px + var(--safe-bottom));
+                z-index: 5;
+                background: linear-gradient(180deg, transparent, var(--surface) 28%);
+                padding-bottom: 4px;
+            }
+            .btn-primary { box-shadow: 0 12px 24px rgba(20, 19, 17, 0.22); }
+        }
+
+        @media (max-width: 520px) {
+            .presets { grid-template-columns: repeat(2, 1fr); }
+            .paper-row { grid-template-columns: 1fr; }
+            .drop-zone { min-height: 230px; padding: 12px; }
+            .panel-preview { padding: 12px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn-primary, .drop-zone { transition: none; }
+        }
+
+        @media print {
+            body { background: white; padding: 0; margin: 0; }
+            .page { display: none !important; }
+            #contenedor-paginas { display: block; }
+            .hoja { margin: 0; page-break-after: always; box-shadow: none; border: none; }
+        }
+    </style>
+    <style id="estiloImpresion"></style>
+</head>
+<body>
+    <div class="page">
+        <header class="site-header">
+            <div class="brand">
+                <div class="mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="3" y="3" width="8" height="8" rx="1.2"/>
+                        <rect x="13" y="3" width="8" height="8" rx="1.2"/>
+                        <rect x="3" y="13" width="8" height="8" rx="1.2"/>
+                        <rect x="13" y="13" width="8" height="8" rx="1.2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Póster PDF</h1>
+                    <p>Imagen a hojas listas para imprimir y pegar.</p>
+                </div>
+            </div>
+            <div class="stats" id="statsBar" aria-live="polite">
+                <span class="chip" id="chipHojas">4 hojas</span>
+                <span class="chip" id="chipTamano">42.0 × 59.4 cm</span>
+            </div>
+        </header>
+
+        <main class="layout">
+            <section class="card panel-preview" aria-labelledby="titulo-preview">
+                <div class="preview-head">
+                    <div>
+                        <p class="kicker">Vista previa</p>
+                        <h2 id="titulo-preview">Cómo quedará el póster</h2>
+                    </div>
+                    <button type="button" class="ghost-btn hidden" id="btnCambiarPreview">Cambiar imagen</button>
+                </div>
+
+                <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Zona para soltar o elegir una imagen">
+                    <div class="empty-state" id="emptyState">
+                        <div class="poster-ghost" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span>
+                        </div>
+                        <div>
+                            <strong>Arrastra una imagen aquí</strong>
+                            <span>JPG, PNG o WEBP. La vista se parte en hojas con zona de pegado.</span>
+                        </div>
+                    </div>
+                    <canvas id="canvasPreview" width="600" height="450"></canvas>
+                </div>
+                <div class="legend">
+                    <span><i class="swatch-glue"></i>Zona de pegado</span>
+                    <span><i class="swatch-cut"></i>Guía de corte</span>
+                </div>
+            </section>
+
+            <aside class="card panel-control" aria-labelledby="titulo-ajustes">
+                <h2 class="hidden" id="titulo-ajustes">Ajustes del póster</h2>
+
+                <section class="section">
+                    <h3>Imagen</h3>
+                    <div class="image-card empty" id="imageCard">
+                        <button type="button" class="file-cta" id="fileTrigger">Subir o elegir archivo</button>
+                        <img class="thumb hidden" id="imageThumb" alt="Miniatura de la imagen cargada">
+                        <div class="image-copy hidden" id="imageCopy">
+                            <strong id="fileLabel">Sin archivo</strong>
+                            <small id="imageMeta">JPG, PNG o WEBP</small>
+                        </div>
+                        <button type="button" class="ghost-btn hidden" id="btnCambiar">Cambiar</button>
+                    </div>
+                    <input type="file" id="inputImagen" accept="image/jpeg,image/png,image/webp">
+                </section>
+
+                <section class="section">
+                    <h3>Cuadrícula</h3>
+                    <div class="presets" role="group" aria-label="Tamaño del póster">
+                        <button type="button" class="preset active" data-cols="2" data-filas="2">
+                            <span class="mini-grid g22"><b></b><b></b><b></b><b></b></span>
+                            2×2
+                        </button>
+                        <button type="button" class="preset" data-cols="3" data-filas="2">
+                            <span class="mini-grid g32"><b></b><b></b><b></b><b></b><b></b><b></b></span>
+                            3×2
+                        </button>
+                        <button type="button" class="preset" data-cols="3" data-filas="3">
+                            <span class="mini-grid g33"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span>
+                            3×3
+                        </button>
+                        <button type="button" class="preset" data-cols="4" data-filas="3">
+                            <span class="mini-grid g43"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span>
+                            4×3
+                        </button>
+                    </div>
+                    <div class="stepper-row">
+                        <label class="field">
+                            <span>Columnas</span>
+                            <div class="stepper">
+                                <button type="button" class="stepper-btn" data-target="columnas" data-delta="-1" aria-label="Menos columnas">−</button>
+                                <input type="number" id="columnas" value="2" min="1" max="8" step="1">
+                                <button type="button" class="stepper-btn" data-target="columnas" data-delta="1" aria-label="Más columnas">+</button>
+                            </div>
+                        </label>
+                        <label class="field">
+                            <span>Filas</span>
+                            <div class="stepper">
+                                <button type="button" class="stepper-btn" data-target="filas" data-delta="-1" aria-label="Menos filas">−</button>
+                                <input type="number" id="filas" value="2" min="1" max="8" step="1">
+                                <button type="button" class="stepper-btn" data-target="filas" data-delta="1" aria-label="Más filas">+</button>
+                            </div>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h3>Papel</h3>
+                    <div class="paper-row" role="group" aria-label="Formato de papel">
+                        <button type="button" class="paper-btn active" data-value="210,297">A4<small>210 × 297</small></button>
+                        <button type="button" class="paper-btn" data-value="215.9,279.4">Carta<small>216 × 279</small></button>
+                        <button type="button" class="paper-btn" data-value="215.9,355.6">Oficio<small>216 × 356</small></button>
+                    </div>
+                    <input type="hidden" id="tamanoPapel" value="210,297">
+                    <div class="seg" role="group" aria-label="Orientación del papel" style="margin-top:8px">
+                        <button type="button" class="seg-btn" data-group="orientacion" data-value="vertical" aria-pressed="true">Vertical</button>
+                        <button type="button" class="seg-btn" data-group="orientacion" data-value="horizontal" aria-pressed="false">Horizontal</button>
+                    </div>
+                    <input type="hidden" id="orientacion" value="vertical">
+                </section>
+
+                <section class="section">
+                    <h3>Ensamblaje</h3>
+                    <div class="seg" role="group" aria-label="Modo de ajuste">
+                        <button type="button" class="seg-btn" data-group="modoAjuste" data-value="contain" aria-pressed="true">Completo<small>sin recorte</small></button>
+                        <button type="button" class="seg-btn" data-group="modoAjuste" data-value="cover" aria-pressed="false">Llenar<small>recorta bordes</small></button>
+                    </div>
+                    <input type="hidden" id="modoAjuste" value="contain">
+                    <p class="hint">El solape es la tira para pegar una hoja con la siguiente.</p>
+                    <div class="stepper-row">
+                        <label class="field">
+                            <span>Margen mm</span>
+                            <div class="stepper">
+                                <button type="button" class="stepper-btn" data-target="margen" data-delta="-1" aria-label="Menos margen">−</button>
+                                <input type="number" id="margen" value="10" min="0" max="40" step="1">
+                                <button type="button" class="stepper-btn" data-target="margen" data-delta="1" aria-label="Más margen">+</button>
+                            </div>
+                        </label>
+                        <label class="field">
+                            <span>Solape mm</span>
+                            <div class="stepper">
+                                <button type="button" class="stepper-btn" data-target="superposicion" data-delta="-1" aria-label="Menos solape">−</button>
+                                <input type="number" id="superposicion" value="5" min="0" max="30" step="1">
+                                <button type="button" class="stepper-btn" data-target="superposicion" data-delta="1" aria-label="Más solape">+</button>
+                            </div>
+                        </label>
+                    </div>
+                </section>
+
+                <div class="summary" id="resumen">4 hojas A4 · 42.0 × 59.4 cm</div>
+                <div class="acciones">
+                    <button type="button" class="btn-primary" id="btnGenerar" disabled>Generar y guardar PDF</button>
+                </div>
+                <div class="alert" id="alerta"></div>
+            </aside>
+        </main>
+    </div>
+
+    <div id="contenedor-paginas"></div>
+
+    <script>
+        let imgCargada = new Image();
+        let imagenLista = false;
+        let nombreArchivo = "";
+        const canvasPrev = document.getElementById("canvasPreview");
+        const ctxPrev = canvasPrev.getContext("2d");
+        const dropZone = document.getElementById("dropZone");
+        const emptyState = document.getElementById("emptyState");
+        const inputImagen = document.getElementById("inputImagen");
+        const btnGenerar = document.getElementById("btnGenerar");
+        const alerta = document.getElementById("alerta");
+        const LIMITE_HOJAS = 24;
+
+        function abrirSelector() { inputImagen.click(); }
+
+        document.getElementById("fileTrigger").addEventListener("click", abrirSelector);
+        document.getElementById("btnCambiar").addEventListener("click", abrirSelector);
+        document.getElementById("btnCambiarPreview").addEventListener("click", abrirSelector);
+
+        document.querySelectorAll(".seg-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const group = btn.dataset.group;
+                document.querySelectorAll(`.seg-btn[data-group="${group}"]`).forEach((other) => {
+                    other.setAttribute("aria-pressed", String(other === btn));
+                });
+                document.getElementById(group).value = btn.dataset.value;
+                actualizarPreview();
+            });
+        });
+
+        document.querySelectorAll(".paper-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".paper-btn").forEach((other) => other.classList.toggle("active", other === btn));
+                document.getElementById("tamanoPapel").value = btn.dataset.value;
+                actualizarPreview();
+            });
+        });
+
+        document.querySelectorAll(".preset").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.getElementById("columnas").value = btn.dataset.cols;
+                document.getElementById("filas").value = btn.dataset.filas;
+                actualizarPreview();
+            });
+        });
+
+        document.querySelectorAll(".stepper-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const input = document.getElementById(btn.dataset.target);
+                const min = parseFloat(input.min);
+                const max = parseFloat(input.max);
+                const next = Math.min(max, Math.max(min, (parseFloat(input.value) || 0) + parseFloat(btn.dataset.delta)));
+                input.value = next;
+                actualizarPreview();
+            });
+        });
+
+        ["margen", "superposicion", "columnas", "filas"].forEach((id) => {
+            document.getElementById(id).addEventListener("input", actualizarPreview);
+            document.getElementById(id).addEventListener("change", actualizarPreview);
+        });
+
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+            dropZone.addEventListener(eventName, preventDefaults);
+            document.body.addEventListener(eventName, preventDefaults);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ["dragenter", "dragover"].forEach((eventName) => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add("dragover"));
+        });
+        ["dragleave", "drop"].forEach((eventName) => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove("dragover"));
+        });
+
+        dropZone.addEventListener("drop", (e) => {
+            const archivo = e.dataTransfer.files[0];
+            if (!archivo) return;
+            if (archivo.type.startsWith("image/")) procesarArchivo(archivo);
+            else mostrarAlerta("Suelta un archivo de imagen válido (JPEG, PNG o WEBP).");
+        });
+
+        dropZone.addEventListener("click", (e) => {
+            if (!imagenLista || e.target === dropZone || e.target.closest(".empty-state")) abrirSelector();
+        });
+
+        dropZone.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                abrirSelector();
+            }
+        });
+
+        inputImagen.addEventListener("change", (e) => {
+            const archivo = e.target.files[0];
+            if (archivo) procesarArchivo(archivo);
+        });
+
+        function marcarPreset(cols, filas) {
+            document.querySelectorAll(".preset").forEach((btn) => {
+                const match = Number(btn.dataset.cols) === cols && Number(btn.dataset.filas) === filas;
+                btn.classList.toggle("active", match);
+            });
+        }
+
+        function procesarArchivo(archivo) {
+            nombreArchivo = archivo.name;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                imgCargada.onload = () => {
+                    imagenLista = true;
+                    emptyState.classList.add("hidden");
+                    dropZone.classList.add("has-image");
+                    canvasPrev.style.display = "block";
+                    document.getElementById("imageCard").classList.remove("empty");
+                    document.getElementById("fileTrigger").classList.add("hidden");
+                    document.getElementById("imageThumb").classList.remove("hidden");
+                    document.getElementById("imageCopy").classList.remove("hidden");
+                    document.getElementById("btnCambiar").classList.remove("hidden");
+                    document.getElementById("btnCambiarPreview").classList.remove("hidden");
+                    document.getElementById("imageThumb").src = event.target.result;
+                    document.getElementById("fileLabel").textContent = nombreArchivo;
+                    document.getElementById("imageMeta").textContent = `${imgCargada.width} × ${imgCargada.height} px`;
+                    btnGenerar.disabled = false;
+                    actualizarPreview();
+                };
+                imgCargada.onerror = () => mostrarAlerta("No se pudo leer esa imagen. Prueba con otro archivo.");
+                imgCargada.src = event.target.result;
+            };
+            reader.readAsDataURL(archivo);
+        }
+
+        function leerConfig() {
+            const medidasPapel = document.getElementById("tamanoPapel").value.split(",");
+            let papelAncho = parseFloat(medidasPapel[0]);
+            let papelAlto = parseFloat(medidasPapel[1]);
+            if (document.getElementById("orientacion").value === "horizontal") {
+                [papelAncho, papelAlto] = [papelAlto, papelAncho];
+            }
+
+            const cols = Math.min(8, Math.max(1, parseInt(document.getElementById("columnas").value, 10) || 1));
+            const filas = Math.min(8, Math.max(1, parseInt(document.getElementById("filas").value, 10) || 1));
+            let margen = Math.max(0, parseFloat(document.getElementById("margen").value) || 0);
+            let overlap = Math.max(0, parseFloat(document.getElementById("superposicion").value) || 0);
+            const maxMargen = Math.min(papelAncho, papelAlto) / 2 - 5;
+            if (margen > maxMargen) margen = Math.max(0, maxMargen);
+            const nucleoAncho = papelAncho - 2 * margen;
+            const nucleoAlto = papelAlto - 2 * margen;
+            if (overlap > nucleoAncho / 2) overlap = Math.max(0, nucleoAncho / 2);
+            if (overlap > nucleoAlto / 2) overlap = Math.max(0, nucleoAlto / 2);
+            const papelNombre = document.querySelector(".paper-btn.active")?.firstChild?.textContent?.trim() || "A4";
+            return { papelAncho, papelAlto, cols, filas, margen, overlap, nucleoAncho, nucleoAlto, papelNombre };
+        }
+
+        function calcularLayoutImagen(anchoImprimibleArea, altoImprimibleArea) {
+            const ratioImg = imgCargada.width / imgCargada.height;
+            const ratioPoster = anchoImprimibleArea / altoImprimibleArea;
+            const modoAjuste = document.getElementById("modoAjuste").value;
+            let imgW_mm, imgH_mm;
+            if (modoAjuste === "contain") {
+                if (ratioImg > ratioPoster) {
+                    imgW_mm = anchoImprimibleArea;
+                    imgH_mm = anchoImprimibleArea / ratioImg;
+                } else {
+                    imgH_mm = altoImprimibleArea;
+                    imgW_mm = altoImprimibleArea * ratioImg;
+                }
+            } else if (ratioImg > ratioPoster) {
+                imgH_mm = altoImprimibleArea;
+                imgW_mm = altoImprimibleArea * ratioImg;
+            } else {
+                imgW_mm = anchoImprimibleArea;
+                imgH_mm = anchoImprimibleArea / ratioImg;
+            }
+            return {
+                imgX_mm: (anchoImprimibleArea - imgW_mm) / 2,
+                imgY_mm: (altoImprimibleArea - imgH_mm) / 2,
+                imgW_mm,
+                imgH_mm
+            };
+        }
+
+        function actualizarStats(cfg) {
+            const hojas = cfg.cols * cfg.filas;
+            const anchoCm = ((cfg.papelAncho * cfg.cols) / 10).toFixed(1);
+            const altoCm = ((cfg.papelAlto * cfg.filas) / 10).toFixed(1);
+            const tamano = `${anchoCm} × ${altoCm} cm`;
+            document.getElementById("chipHojas").textContent = `${hojas} hoja${hojas === 1 ? "" : "s"}`;
+            document.getElementById("chipTamano").textContent = tamano;
+            document.getElementById("chipHojas").classList.toggle("ready", imagenLista);
+            document.getElementById("chipTamano").classList.toggle("ready", imagenLista);
+            document.getElementById("resumen").innerHTML =
+                `<strong>${hojas} hojas ${cfg.papelNombre}</strong> · ${tamano} · margen ${cfg.margen} mm · solape ${cfg.overlap} mm`;
+            btnGenerar.textContent = imagenLista
+                ? `Generar PDF · ${hojas} hoja${hojas === 1 ? "" : "s"}`
+                : "Generar y guardar PDF";
+            marcarPreset(cfg.cols, cfg.filas);
+
+            if (cfg.nucleoAncho <= 0 || cfg.nucleoAlto <= 0) {
+                mostrarAlerta("El margen es demasiado grande para ese formato de papel.");
+            } else if (hojas > LIMITE_HOJAS) {
+                mostrarAlerta(`Demasiadas hojas (${hojas}). El máximo recomendado es ${LIMITE_HOJAS}.`);
+            } else {
+                ocultarAlerta();
+            }
+        }
+
+        function mostrarAlerta(texto) {
+            alerta.textContent = texto;
+            alerta.classList.add("visible");
+        }
+        function ocultarAlerta() {
+            alerta.classList.remove("visible");
+            alerta.textContent = "";
+        }
+
+        function actualizarPreview() {
+            const cfg = leerConfig();
+            actualizarStats(cfg);
+
+            const totalAnchoMm = cfg.papelAncho * cfg.cols;
+            const totalAltoMm = cfg.papelAlto * cfg.filas;
+            const box = dropZone.getBoundingClientRect();
+            const maxW = Math.max(240, box.width - 36);
+            const maxH = Math.max(180, Math.min(window.innerHeight * 0.62, 640));
+            let previewW = maxW;
+            let previewH = (totalAltoMm / totalAnchoMm) * maxW;
+            if (previewH > maxH) {
+                previewH = maxH;
+                previewW = (totalAnchoMm / totalAltoMm) * maxH;
+            }
+
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvasPrev.style.width = `${previewW}px`;
+            canvasPrev.style.height = `${previewH}px`;
+            canvasPrev.width = Math.round(previewW * dpr);
+            canvasPrev.height = Math.round(previewH * dpr);
+            ctxPrev.setTransform(dpr, 0, 0, dpr, 0, 0);
+            canvasPrev.style.display = imagenLista ? "block" : "none";
+            if (!imagenLista) return;
+
+            const mmToPxScale = previewW / totalAnchoMm;
+            const layout = calcularLayoutImagen(cfg.nucleoAncho * cfg.cols, cfg.nucleoAlto * cfg.filas);
+            ctxPrev.fillStyle = "#efe8dc";
+            ctxPrev.fillRect(0, 0, previewW, previewH);
+
+            for (let f = 0; f < cfg.filas; f++) {
+                for (let c = 0; c < cfg.cols; c++) {
+                    const pX = c * cfg.papelAncho * mmToPxScale;
+                    const pY = f * cfg.papelAlto * mmToPxScale;
+                    const pW = cfg.papelAncho * mmToPxScale;
+                    const pH = cfg.papelAlto * mmToPxScale;
+                    ctxPrev.fillStyle = "#ffffff";
+                    ctxPrev.fillRect(pX, pY, pW, pH);
+
+                    const localImgX_mm = layout.imgX_mm - (c * cfg.nucleoAncho - cfg.margen);
+                    const localImgY_mm = layout.imgY_mm - (f * cfg.nucleoAlto - cfg.margen);
+
+                    ctxPrev.save();
+                    ctxPrev.beginPath();
+                    ctxPrev.rect(pX, pY, pW, pH);
+                    ctxPrev.clip();
+                    ctxPrev.drawImage(
+                        imgCargada,
+                        pX + localImgX_mm * mmToPxScale,
+                        pY + localImgY_mm * mmToPxScale,
+                        layout.imgW_mm * mmToPxScale,
+                        layout.imgH_mm * mmToPxScale
+                    );
+
+                    ctxPrev.fillStyle = "#8a8378";
+                    ctxPrev.font = `600 ${Math.max(9, 10 * Math.min(mmToPxScale, 1.4))}px system-ui`;
+                    ctxPrev.fillText(`Fila ${f + 1} · Col ${c + 1}`, pX + 5 * mmToPxScale, pY + 7 * mmToPxScale);
+                    ctxPrev.strokeStyle = "rgba(148, 137, 122, 0.55)";
+                    ctxPrev.lineWidth = 0.8;
+                    ctxPrev.setLineDash([4, 4]);
+                    ctxPrev.strokeRect(
+                        pX + cfg.margen * mmToPxScale,
+                        pY + cfg.margen * mmToPxScale,
+                        cfg.nucleoAncho * mmToPxScale,
+                        cfg.nucleoAlto * mmToPxScale
+                    );
+                    ctxPrev.setLineDash([]);
+                    ctxPrev.fillStyle = "rgba(138, 131, 120, 0.7)";
+                    ctxPrev.fillText("✂", pX + (cfg.margen + 1) * mmToPxScale, pY + (cfg.margen - 1.5) * mmToPxScale);
+
+                    if (c < cfg.cols - 1 && cfg.overlap > 0) {
+                        ctxPrev.fillStyle = "rgba(15, 118, 110, 0.18)";
+                        ctxPrev.fillRect(
+                            pX + (cfg.margen + cfg.nucleoAncho) * mmToPxScale,
+                            pY + cfg.margen * mmToPxScale,
+                            cfg.overlap * mmToPxScale,
+                            cfg.nucleoAlto * mmToPxScale
+                        );
+                    }
+                    if (f < cfg.filas - 1 && cfg.overlap > 0) {
+                        ctxPrev.fillStyle = "rgba(15, 118, 110, 0.18)";
+                        ctxPrev.fillRect(
+                            pX + cfg.margen * mmToPxScale,
+                            pY + (cfg.margen + cfg.nucleoAlto) * mmToPxScale,
+                            cfg.nucleoAncho * mmToPxScale,
+                            cfg.overlap * mmToPxScale
+                        );
+                    }
+                    ctxPrev.restore();
+                    ctxPrev.strokeStyle = "rgba(20, 19, 17, 0.16)";
+                    ctxPrev.lineWidth = 1;
+                    ctxPrev.strokeRect(pX + 0.5, pY + 0.5, pW - 1, pH - 1);
+                }
+            }
+        }
+
+        function generarEImprimir() {
+            if (!imagenLista) {
+                mostrarAlerta("Selecciona o arrastra una imagen primero.");
+                return;
+            }
+            try {
+                const cfg = leerConfig();
+                const hojas = cfg.cols * cfg.filas;
+                if (cfg.nucleoAncho <= 0 || cfg.nucleoAlto <= 0) {
+                    mostrarAlerta("El margen es demasiado grande para ese formato de papel.");
+                    return;
+                }
+                if (hojas > LIMITE_HOJAS) {
+                    mostrarAlerta(`Reduce filas o columnas. El máximo es ${LIMITE_HOJAS} hojas.`);
+                    return;
+                }
+
+                document.getElementById("estiloImpresion").innerText =
+                    `@page { size: ${cfg.papelAncho}mm ${cfg.papelAlto}mm; margin: 0; }`;
+                const contenedor = document.getElementById("contenedor-paginas");
+                contenedor.innerHTML = "";
+                const layout = calcularLayoutImagen(cfg.nucleoAncho * cfg.cols, cfg.nucleoAlto * cfg.filas);
+                const mult = 6;
+
+                for (let f = 0; f < cfg.filas; f++) {
+                    for (let c = 0; c < cfg.cols; c++) {
+                        const pagina = document.createElement("div");
+                        pagina.className = "hoja";
+                        pagina.style.width = cfg.papelAncho + "mm";
+                        pagina.style.height = cfg.papelAlto + "mm";
+                        const canvas = document.createElement("canvas");
+                        canvas.width = Math.round(cfg.papelAncho * mult);
+                        canvas.height = Math.round(cfg.papelAlto * mult);
+                        const ctx = canvas.getContext("2d", { alpha: false });
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        const overIzq = (c > 0) ? cfg.overlap : 0;
+                        const overDer = (c < cfg.cols - 1) ? cfg.overlap : 0;
+                        const overArr = (f > 0) ? cfg.overlap : 0;
+                        const overAba = (f < cfg.filas - 1) ? cfg.overlap : 0;
+                        const localImgX_mm = layout.imgX_mm - (c * cfg.nucleoAncho - cfg.margen);
+                        const localImgY_mm = layout.imgY_mm - (f * cfg.nucleoAlto - cfg.margen);
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rect(
+                            (cfg.margen - overIzq) * mult,
+                            (cfg.margen - overArr) * mult,
+                            (cfg.nucleoAncho + overIzq + overDer) * mult,
+                            (cfg.nucleoAlto + overArr + overAba) * mult
+                        );
+                        ctx.clip();
+                        ctx.drawImage(imgCargada, localImgX_mm * mult, localImgY_mm * mult, layout.imgW_mm * mult, layout.imgH_mm * mult);
+                        ctx.restore();
+
+                        ctx.fillStyle = "#cbd5e1";
+                        ctx.font = `bold ${Math.round(2.2 * mult)}px system-ui, sans-serif`;
+                        ctx.fillText(`Fila ${f + 1} - Col ${c + 1}`, 5 * mult, 7 * mult);
+                        ctx.strokeStyle = "#f1f5f9";
+                        ctx.lineWidth = 0.5;
+                        ctx.setLineDash([6, 6]);
+                        ctx.strokeRect(cfg.margen * mult, cfg.margen * mult, cfg.nucleoAncho * mult, cfg.nucleoAlto * mult);
+                        ctx.fillStyle = "#e2e8f0";
+                        ctx.font = `${Math.round(2.2 * mult)}px system-ui, sans-serif`;
+                        ctx.fillText("✂", (cfg.margen + 1) * mult, (cfg.margen - 1.2) * mult);
+
+                        if (c < cfg.cols - 1 && cfg.overlap > 0) {
+                            ctx.fillStyle = "rgba(241, 245, 249, 0.4)";
+                            ctx.fillRect((cfg.margen + cfg.nucleoAncho) * mult, cfg.margen * mult, cfg.overlap * mult, cfg.nucleoAlto * mult);
+                            ctx.fillStyle = "#cbd5e1";
+                            ctx.font = `${Math.round(1.5 * mult)}px system-ui, sans-serif`;
+                            ctx.fillText("Zona de Pegado ➔", (cfg.margen + cfg.nucleoAncho + 0.5) * mult, (cfg.margen + 4) * mult);
+                        }
+                        if (f < cfg.filas - 1 && cfg.overlap > 0) {
+                            ctx.fillStyle = "rgba(241, 245, 249, 0.4)";
+                            ctx.fillRect(cfg.margen * mult, (cfg.margen + cfg.nucleoAlto) * mult, cfg.nucleoAncho * mult, cfg.overlap * mult);
+                            ctx.fillStyle = "#cbd5e1";
+                            ctx.font = `${Math.round(1.5 * mult)}px system-ui, sans-serif`;
+                            ctx.fillText("Zona de Pegado 👇", (cfg.margen + 1) * mult, (cfg.margen + cfg.nucleoAlto + 3) * mult);
+                        }
+
+                        pagina.appendChild(canvas);
+                        contenedor.appendChild(pagina);
+                    }
+                }
+                setTimeout(() => { window.print(); }, 400);
+            } catch (error) {
+                mostrarAlerta("Error en el renderizador: " + error.message);
+            }
+        }
+
+        btnGenerar.addEventListener("click", generarEImprimir);
+        window.addEventListener("resize", actualizarPreview);
+        if (window.ResizeObserver) new ResizeObserver(actualizarPreview).observe(dropZone);
+        actualizarPreview();
+    </script>
+</body>
+</html>
